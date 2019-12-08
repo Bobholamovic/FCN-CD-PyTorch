@@ -1,0 +1,3 @@
+[submodule "src/models"]
+	path = src/models
+	url = git@github.com:rcdaudt/fully_convolutional_change_detection.git
