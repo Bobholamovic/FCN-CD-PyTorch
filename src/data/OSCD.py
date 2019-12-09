@@ -33,7 +33,7 @@ class OSCDDataset(CDDataset):
         with open(txt_file, 'r') as f:
             cities = [city.strip() for city in f.read().strip().split(',')]
         if self.phase == 'train':
-            # For training, use the first 10 pairs
+            # For training, use the first 11 pairs
             cities = cities[:-3]
         else:
             # For validation, use the remaining 3 pairs

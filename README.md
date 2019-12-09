@@ -12,15 +12,15 @@ as the [official repo](https://github.com/rcdaudt/fully_convolutional_change_det
 
 ```bash
 # The network definition scripts are from the original repo
-git clone --recurse-submodules git@github.com:Bobholamovic/FCN-CD-PyTorch.git   
+git clone --recurse-submodules git@github.com:Bobholamovic/FCN-CD-PyTorch.git
+cd FCN-CD-PyTorch
+mkdir exp
+cd src
 ```
 
 For training, try
 
 ```bash
-# In the root directory of this repository
-mkdir exp
-cd src
 python train.py train --exp-config ../config_base.yaml
 ```
 

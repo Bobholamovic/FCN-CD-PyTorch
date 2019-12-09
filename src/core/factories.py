@@ -109,12 +109,19 @@ def single_model_factory(model_name, C):
 
 
 def single_optim_factory(optim_name, params, C):
-    name = optim_name.upper()
+    name = optim_name.strip().upper()
     if name == 'ADAM':
         return torch.optim.Adam(
             params, 
             betas=(0.9, 0.999),
             lr=C.lr,
+            weight_decay=C.weight_decay
+        )
+    elif name == 'SGD':
+        return torch.optim.SGD(
+            params, 
+            lr=C.lr,
+            momentum=0.9,
             weight_decay=C.weight_decay
         )
     else:
@@ -137,7 +144,8 @@ def single_critn_factory(critn_name, C):
 
 def single_train_ds_factory(ds_name, C):
     from data.augmentation import Compose, Crop, Flip
-    module = _import_module('data', ds_name.strip())
+    ds_name = ds_name.strip()
+    module = _import_module('data', ds_name)
     dataset = getattr(module, ds_name+'Dataset')
     configs = dict(
         phase='train', 
@@ -150,17 +158,17 @@ def single_train_ds_factory(ds_name, C):
                 root = constants.IMDB_OSCD
             )
         )
-    elif ds_name == 'AC':
+    elif ds_name.startswith('AC'):
         configs.update(
             dict(
-                root = constants.IMDB_AC
+                root = constants.IMDB_AirChange
             )
         )
     else:
         pass
 
     dataset_obj = dataset(**configs)
-
+    
     return data.DataLoader(
         dataset_obj,
         batch_size=C.batch_size,
@@ -171,11 +179,13 @@ def single_train_ds_factory(ds_name, C):
 
 
 def single_val_ds_factory(ds_name, C):
-    module = _import_module('data', ds_name.strip())
+    ds_name = ds_name.strip()
+    module = _import_module('data', ds_name)
     dataset = getattr(module, ds_name+'Dataset')
     configs = dict(
         phase='val', 
-        transforms=(None, None, None)
+        transforms=(None, None, None),
+        repeats=1
     )
     if ds_name == 'OSCD':
         configs.update(
@@ -183,7 +193,7 @@ def single_val_ds_factory(ds_name, C):
                 root = constants.IMDB_OSCD
             )
         )
-    elif ds_name == 'AC':
+    elif ds_name.startswith('AC'):
         configs.update(
             dict(
                 root = constants.IMDB_AirChange
@@ -246,4 +256,4 @@ def data_factory(dataset_names, phase, C):
 def metric_factory(metric_names, C):
     from utils import metrics
     name_list = _parse_input_names(metric_names)
-    return [getattr(metrics, name)() for name in name_list]
+    return [getattr(metrics, name.strip())() for name in name_list]

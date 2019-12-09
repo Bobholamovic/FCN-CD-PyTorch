@@ -212,9 +212,9 @@ class CDTrainer(Trainer):
 
         for i, (t1, t2, label) in enumerate(pb):
             t1, t2, label = t1.to(self.device), t2.to(self.device), label.to(self.device)
-
+            
             prob = self.model(t1, t2)
-
+            
             loss = self.criterion(prob, label)
             
             losses.update(loss.item(), n=self.batch_size)
@@ -267,6 +267,6 @@ class CDTrainer(Trainer):
                 self.logger.dump(desc)
                     
                 if store:
-                    self.save_image(name[0], CM.squeeze(-1), epoch)
+                    self.save_image(name[0], (CM*255).squeeze(-1), epoch)
 
         return self.metrics[0].avg if len(self.metrics) > 0 else max(1.0 - losses.avg, self._init_max_acc)
