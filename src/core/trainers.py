@@ -267,6 +267,6 @@ class CDTrainer(Trainer):
                 self.logger.dump(desc)
                     
                 if store:
-                    self.save_image(name[0], CM, epoch)
+                    self.save_image(name[0], CM.squeeze(-1), epoch)
 
         return self.metrics[0].avg if len(self.metrics) > 0 else max(1.0 - losses.avg, self._init_max_acc)

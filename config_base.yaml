@@ -19,7 +19,7 @@ step: 2
 
 # Training related
 batch_size: 32
-num_epochs: 20
+num_epochs: 40
 resume: ''
 load_optim: True
 anew: False
