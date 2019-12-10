@@ -8,6 +8,18 @@ as the [official repo](https://github.com/rcdaudt/fully_convolutional_change_det
 
 [paper link](https://ieeexplore.ieee.org/abstract/document/8451652)
 
+# Prerequisites
+
+> opencv-python==4.1.1  
+  pytorch==1.2.0  
+  pyyaml==5.1.2  
+  scikit-image==0.15.0  
+  scikit-learn==0.21.3  
+  scipy==1.3.1  
+  tqdm==4.35.0  
+
+Tested on Python 3.7.4, Ubuntu 16.04
+
 # Basic Usage
 
 ```bash
@@ -17,6 +29,8 @@ cd FCN-CD-PyTorch
 mkdir exp
 cd src
 ```
+
+In `src/constants.py`, change the dataset directories to your own. In `config_base.yaml`, feel free to modify the configurations.
 
 For training, try
 
