@@ -104,6 +104,9 @@ def single_model_factory(model_name, C):
     elif name == 'SIAMUNET_DIFF':
         from models.siamunet_diff import SiamUnet_diff
         return SiamUnet_diff(C.num_feats_in, 2)
+    elif name == 'EF':
+        from models.unet import Unet
+        return Unet(C.num_feats_in, 2)
     else:
         raise NotImplementedError("{} is not a supported architecture".format(model_name))
 
