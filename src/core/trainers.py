@@ -33,8 +33,8 @@ class Trainer:
         self.lr = float(context.lr)
         self.save = context.save_on or context.out_dir
         self.out_dir = context.out_dir
-        self.trace_freq = context.trace_freq
-        self.device = context.device
+        self.trace_freq = int(context.trace_freq)
+        self.device = torch.device(context.device)
         self.suffix_off = context.suffix_off
 
         for k, v in sorted(self.ctx.items()):
@@ -44,7 +44,7 @@ class Trainer:
         self.model.to(self.device)
         self.criterion = critn_factory(criterion, context)
         self.criterion.to(self.device)
-        self.optimizer = optim_factory(optimizer, self.model.parameters(), context)
+        self.optimizer = optim_factory(optimizer, self.model, context)
         self.metrics = metric_factory(context.metrics, context)
 
         self.train_loader = data_factory(dataset, 'train', context)
@@ -74,10 +74,14 @@ class Trainer:
             # Train for one epoch
             self.train_epoch()
 
+            # Clear the history of metric objects
+            for m in self.metrics:
+                m.reset()
+                
             # Evaluate the model on validation set
             self.logger.show_nl("Validate")
             acc = self.validate_epoch(epoch=epoch, store=self.save)
-            
+                
             is_best = acc > max_acc
             if is_best:
                 max_acc = acc
@@ -250,7 +254,7 @@ class CDTrainer(Trainer):
                 losses.update(loss.item(), n=self.batch_size)
 
                 # Convert to numpy arrays
-                CM = to_array(torch.argmax(prob, 1)).astype('uint8')
+                CM = to_array(torch.argmax(prob[0], 0)).astype('uint8')
                 label = to_array(label[0]).astype('uint8')
                 for m in self.metrics:
                     m.update(CM, label)
@@ -267,6 +271,6 @@ class CDTrainer(Trainer):
                 self.logger.dump(desc)
                     
                 if store:
-                    self.save_image(name[0], (CM*255).squeeze(-1), epoch)
+                    self.save_image(name[0], CM*255, epoch)
 
         return self.metrics[0].avg if len(self.metrics) > 0 else max(1.0 - losses.avg, self._init_max_acc)
