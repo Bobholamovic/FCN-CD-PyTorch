@@ -242,6 +242,11 @@ class CDTrainer(Trainer):
 
         with torch.no_grad():
             for i, (name, t1, t2, label) in enumerate(pb):
+                if self.phase == 'train' and i >= 16: 
+                    # Do not validate all images on training phase
+                    pb.close()
+                    self.logger.warning("validation ends early")
+                    break
                 t1, t2, label = t1.to(self.device), t2.to(self.device), label.to(self.device)
 
                 prob = self.model(t1, t2)

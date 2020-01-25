@@ -3,23 +3,23 @@
 
 # Data
 # Common
-dataset: AC_Tiszadob
-crop_size: 112
+dataset: Lebedev
+crop_size: 224
 num_workers: 1
-repeats: 3200
+repeats: 1
 
 
 # Optimizer
-optimizer: SGD
-lr: 0.001
-lr_mode: const
-weight_decay: 0.0005
-step: 2
+optimizer: Adam
+lr: 1e-4
+lr_mode: step
+weight_decay: 0.0
+step: 5
 
 
 # Training related
-batch_size: 32
-num_epochs: 10
+batch_size: 8 
+num_epochs: 15
 resume: ''
 load_optim: True
 anew: False
@@ -42,10 +42,10 @@ suffix_off: False
 # Criterion
 criterion: NLL
 weights: 
-  - 1.0   # Weight of no-change class
-  - 10.0   # Weight of change class
+  - 0.117   # Weight of no-change class
+  - 0.883   # Weight of change class
 
 
 # Model
-model: siamunet_conc
-num_feats_in: 3
+model: EF
+num_feats_in: 6

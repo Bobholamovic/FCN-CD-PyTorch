@@ -164,7 +164,14 @@ def single_train_ds_factory(ds_name, C):
     elif ds_name.startswith('AC'):
         configs.update(
             dict(
-                root = constants.IMDB_AirChange
+                root = constants.IMDB_AIRCHANGE
+            )
+        )
+    elif ds_name == 'Lebedev':
+        configs.update(
+            dict(
+                root = constants.IMDB_LEBEDEV,
+                subsets = ('real',)
             )
         )
     else:
@@ -199,7 +206,14 @@ def single_val_ds_factory(ds_name, C):
     elif ds_name.startswith('AC'):
         configs.update(
             dict(
-                root = constants.IMDB_AirChange
+                root = constants.IMDB_AIRCHANGE
+            )
+        )
+    elif ds_name == 'Lebedev':
+        configs.update(
+            dict(
+                root = constants.IMDB_LEBEDEV,
+                subsets = ('real',)
             )
         )
     else:

@@ -3,7 +3,8 @@
 
 # Dataset directories
 IMDB_OSCD = '~/Datasets/OSCDDataset/'
-IMDB_AirChange = '~/Datasets/SZTAKI_AirChange_Benchmark/'
+IMDB_AIRCHANGE = '~/Datasets/SZTAKI_AirChange_Benchmark/'
+IMDB_LEBEDEV = '~/Datasets/HR/ChangeDetectionDataset/'
 
 # Checkpoint templates
 CKP_LATEST = 'checkpoint_latest.pth'
