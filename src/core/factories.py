@@ -12,6 +12,7 @@ import constants
 import utils.metrics as metrics
 from utils.misc import R
 
+
 class _Desc:
     def __init__(self, key):
         self.key = key
@@ -26,15 +27,7 @@ class _Desc:
 
 def _func_deco(func_name):
     def _wrapper(self, *args):
-        # TODO: Add key argument support
-        try:
-            # Dispatch type 1
-            ret = tuple(getattr(ins, func_name)(*args) for ins in self)
-        except Exception:
-            # Dispatch type 2
-            if len(args) > 1 or (len(args[0]) != len(self)): raise
-            ret = tuple(getattr(i, func_name)(a) for i, a in zip(self, args[0]))
-        return ret
+        return tuple(getattr(ins, func_name)(*args) for ins in self)
     return _wrapper
 
 
@@ -43,6 +36,16 @@ def _generator_deco(func_name):
         for ins in self:
             yield from getattr(ins, func_name)(*args, **kwargs)
     return _wrapper
+
+
+def _mark(func):
+    func.__marked__ = True
+    return func
+
+
+def _unmark(func):
+    func.__marked__ = False
+    return func
 
 
 # Duck typing
@@ -60,6 +63,9 @@ class DuckMeta(type):
         for k, v in getmembers(bases[0]):
             if k.startswith('__'):
                 continue
+            if k in attrs and hasattr(attrs[k], '__marked__'):
+                if attrs[k].__marked__:
+                    continue
             if isgeneratorfunction(v):
                 attrs[k] = _generator_deco(k)
             elif isfunction(v):
@@ -71,13 +77,47 @@ class DuckMeta(type):
 
 
 class DuckModel(nn.Module, metaclass=DuckMeta):
-    pass
+    DELIM = ':'
+    @_mark
+    def load_state_dict(self, state_dict):
+        dicts = [dict() for _ in range(len(self))]
+        for k, v in state_dict.items():
+            i, *k = k.split(self.DELIM)
+            k = self.DELIM.join(k)
+            i = int(i)
+            dicts[i][k] = v
+        for i in range(len(self)):  self[i].load_state_dict(dicts[i])
+
+    @_mark
+    def state_dict(self):
+        dict_ = dict()
+        for i, ins in enumerate(self):
+            dict_.update({self.DELIM.join([str(i), key]):val for key, val in ins.state_dict().items()})
+        return dict_
 
 
 class DuckOptimizer(torch.optim.Optimizer, metaclass=DuckMeta):
+    DELIM = ':'
     @property
     def param_groups(self):
         return list(chain.from_iterable(ins.param_groups for ins in self))
+
+    @_mark
+    def state_dict(self):
+        dict_ = dict()
+        for i, ins in enumerate(self):
+            dict_.update({self.DELIM.join([str(i), key]):val for key, val in ins.state_dict().items()})
+        return dict_
+
+    @_mark
+    def load_state_dict(self, state_dict):
+        dicts = [dict() for _ in range(len(self))]
+        for k, v in state_dict.items():
+            i, *k = k.split(self.DELIM)
+            k = self.DELIM.join(k)
+            i = int(i)
+            dicts[i][k] = v
+        for i in range(len(self)):  self[i].load_state_dict(dicts[i])
 
 
 class DuckCriterion(nn.Module, metaclass=DuckMeta):
@@ -112,7 +152,8 @@ def single_model_factory(model_name, C):
 
 
 def single_optim_factory(optim_name, params, C):
-    name = optim_name.strip().upper()
+    optim_name = optim_name.strip()
+    name = optim_name.upper()
     if name == 'ADAM':
         return torch.optim.Adam(
             params, 
@@ -133,6 +174,7 @@ def single_optim_factory(optim_name, params, C):
 
 def single_critn_factory(critn_name, C):
     import losses
+    critn_name = critn_name.strip()
     try:
         criterion, params = {
             'L1': (nn.L1Loss, ()),
@@ -145,6 +187,23 @@ def single_critn_factory(critn_name, C):
         raise NotImplementedError("{} is not a supported criterion type".format(critn_name))
 
 
+def _get_basic_configs(ds_name, C):
+    if ds_name == 'OSCD':
+        return dict(
+            root = constants.IMDB_OSCD
+        )
+    elif ds_name.startswith('AC'):
+        return dict(
+            root = constants.IMDB_AirChange
+        )
+    elif ds_name.startswith('Lebedev'):
+        return dict(
+            root = constants.IMDB_LEBEDEV
+        )
+    else:
+        return dict()
+        
+
 def single_train_ds_factory(ds_name, C):
     from data.augmentation import Compose, Crop, Flip
     ds_name = ds_name.strip()
@@ -155,28 +214,20 @@ def single_train_ds_factory(ds_name, C):
         transforms=(Compose(Crop(C.crop_size), Flip()), None, None),
         repeats=C.repeats
     )
-    if ds_name == 'OSCD':
+    
+    # Update some common configurations
+    configs.update(_get_basic_configs(ds_name, C))
+
+    # Set phase-specific ones
+    if ds_name == 'Lebedev':
         configs.update(
             dict(
-                root = constants.IMDB_OSCD
-            )
-        )
-    elif ds_name.startswith('AC'):
-        configs.update(
-            dict(
-                root = constants.IMDB_AIRCHANGE
-            )
-        )
-    elif ds_name == 'Lebedev':
-        configs.update(
-            dict(
-                root = constants.IMDB_LEBEDEV,
                 subsets = ('real',)
             )
         )
     else:
         pass
-
+    
     dataset_obj = dataset(**configs)
     
     return data.DataLoader(
@@ -197,28 +248,20 @@ def single_val_ds_factory(ds_name, C):
         transforms=(None, None, None),
         repeats=1
     )
-    if ds_name == 'OSCD':
+
+    # Update some common configurations
+    configs.update(_get_basic_configs(ds_name, C))
+
+    # Set phase-specific ones
+    if ds_name == 'Lebedev':
         configs.update(
             dict(
-                root = constants.IMDB_OSCD
-            )
-        )
-    elif ds_name.startswith('AC'):
-        configs.update(
-            dict(
-                root = constants.IMDB_AIRCHANGE
-            )
-        )
-    elif ds_name == 'Lebedev':
-        configs.update(
-            dict(
-                root = constants.IMDB_LEBEDEV,
                 subsets = ('real',)
             )
         )
     else:
         pass
-
+    
     dataset_obj = dataset(**configs)  
 
     # Create eval set
@@ -243,12 +286,24 @@ def model_factory(model_names, C):
         return single_model_factory(model_names, C)
 
 
-def optim_factory(optim_names, params, C):
+def optim_factory(optim_names, models, C):
     name_list = _parse_input_names(optim_names)
-    if len(name_list) > 1:
-        return DuckOptimizer(*(single_optim_factory(name, params, C) for name in name_list))
+    num_models = len(models) if isinstance(models, DuckModel) else 1
+    if len(name_list) != num_models:
+        raise ValueError("the number of optimizers does not match the number of models")
+    
+    if num_models > 1:
+        optims = []
+        for name, model in zip(name_list, models):
+            param_groups = [{'params': module.parameters(), 'name': module_name} for module_name, module in model.named_children()]
+            optims.append(single_optim_factory(name, param_groups, C))
+        return DuckOptimizer(*optims)
     else:
-        return single_optim_factory(optim_names, params, C)
+        return single_optim_factory(
+            optim_names, 
+            [{'params': module.parameters(), 'name': module_name} for module_name, module in models.named_children()], 
+            C
+        )
 
 
 def critn_factory(critn_names, C):
