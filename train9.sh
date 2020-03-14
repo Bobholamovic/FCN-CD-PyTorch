@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Activate conda environment
-source activate $ME
+# # Activate conda environment
+# source activate $ME
 
 # Change directory
 cd src

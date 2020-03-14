@@ -11,6 +11,7 @@ import torch.utils.data as data
 import constants
 import utils.metrics as metrics
 from utils.misc import R
+from data.augmentation import *
 
 
 class _Desc:
@@ -38,16 +39,6 @@ def _generator_deco(func_name):
     return _wrapper
 
 
-def _mark(func):
-    func.__marked__ = True
-    return func
-
-
-def _unmark(func):
-    func.__marked__ = False
-    return func
-
-
 # Duck typing
 class Duck(tuple):
     __ducktype__ = object
@@ -56,6 +47,12 @@ class Duck(tuple):
             raise TypeError("please check the input type")
         return tuple.__new__(cls, args)
 
+    def __add__(self, tup):
+        raise NotImplementedError
+
+    def __mul__(self, tup):
+        raise NotImplementedError
+
 
 class DuckMeta(type):
     def __new__(cls, name, bases, attrs):
@@ -63,61 +60,43 @@ class DuckMeta(type):
         for k, v in getmembers(bases[0]):
             if k.startswith('__'):
                 continue
-            if k in attrs and hasattr(attrs[k], '__marked__'):
-                if attrs[k].__marked__:
-                    continue
             if isgeneratorfunction(v):
-                attrs[k] = _generator_deco(k)
+                attrs.setdefault(k, _generator_deco(k))
             elif isfunction(v):
-                attrs[k] = _func_deco(k)
+                attrs.setdefault(k, _func_deco(k))
             else:
-                attrs[k] = _Desc(k)
+                attrs.setdefault(k, _Desc(k))
         attrs['__ducktype__'] = bases[0]
         return super().__new__(cls, name, (Duck,), attrs)
 
 
-class DuckModel(nn.Module, metaclass=DuckMeta):
-    DELIM = ':'
-    @_mark
-    def load_state_dict(self, state_dict):
-        dicts = [dict() for _ in range(len(self))]
-        for k, v in state_dict.items():
-            i, *k = k.split(self.DELIM)
-            k = self.DELIM.join(k)
-            i = int(i)
-            dicts[i][k] = v
-        for i in range(len(self)):  self[i].load_state_dict(dicts[i])
+class DuckModel(nn.Module):
+    def __init__(self, *models):
+        super().__init__()
+        ## XXX: The state_dict will be a little larger in size
+        # Since some extra bytes are stored in every key
+        self._m = nn.ModuleList(models)
 
-    @_mark
-    def state_dict(self):
-        dict_ = dict()
-        for i, ins in enumerate(self):
-            dict_.update({self.DELIM.join([str(i), key]):val for key, val in ins.state_dict().items()})
-        return dict_
+    def __len__(self):
+        return len(self._m)
+
+    def __getitem__(self, idx):
+        return self._m[idx]
+
+    def __repr__(self):
+        return repr(self._m)
 
 
 class DuckOptimizer(torch.optim.Optimizer, metaclass=DuckMeta):
-    DELIM = ':'
+    # Cuz this is an instance method
     @property
     def param_groups(self):
         return list(chain.from_iterable(ins.param_groups for ins in self))
 
-    @_mark
-    def state_dict(self):
-        dict_ = dict()
-        for i, ins in enumerate(self):
-            dict_.update({self.DELIM.join([str(i), key]):val for key, val in ins.state_dict().items()})
-        return dict_
-
-    @_mark
-    def load_state_dict(self, state_dict):
-        dicts = [dict() for _ in range(len(self))]
-        for k, v in state_dict.items():
-            i, *k = k.split(self.DELIM)
-            k = self.DELIM.join(k)
-            i = int(i)
-            dicts[i][k] = v
-        for i in range(len(self)):  self[i].load_state_dict(dicts[i])
+    # This is special in dispatching
+    def load_state_dict(self, state_dicts):
+        for optim, state_dict in zip(self, state_dicts):
+            optim.load_state_dict(state_dict)
 
 
 class DuckCriterion(nn.Module, metaclass=DuckMeta):
@@ -205,7 +184,6 @@ def _get_basic_configs(ds_name, C):
         
 
 def single_train_ds_factory(ds_name, C):
-    from data.augmentation import Compose, Crop, Flip
     ds_name = ds_name.strip()
     module = _import_module('data', ds_name)
     dataset = getattr(module, ds_name+'Dataset')

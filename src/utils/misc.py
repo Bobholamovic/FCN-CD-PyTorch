@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 from time import localtime
 from collections import OrderedDict
 from weakref import proxy
@@ -17,8 +18,13 @@ class Logger:
         Logger._count += 1
         self._logger.setLevel(logging.DEBUG)
 
+        self._err_handler = logging.StreamHandler(stream=sys.stderr)
+        self._err_handler.setLevel(logging.ERROR)
+        self._err_handler.setFormatter(logging.Formatter(fmt=FORMAT_SHORT))
+        self._logger.addHandler(self._err_handler)
+
         if scrn:
-            self._scrn_handler = logging.StreamHandler()
+            self._scrn_handler = logging.StreamHandler(stream=sys.stdout)
             self._scrn_handler.setLevel(logging.INFO)
             self._scrn_handler.setFormatter(logging.Formatter(fmt=FORMAT_SHORT))
             self._logger.addHandler(self._scrn_handler)
@@ -50,9 +56,12 @@ class Logger:
     def error(self, *args, **kwargs):
         return self._logger.error(*args, **kwargs)
 
+    def fatal(self, *args, **kwargs):
+        return self._logger.critical(*args, **kwargs)
+
     @staticmethod
-    def make_desc(counter, total, *triples):
-        desc = "[{}/{}]".format(counter, total)
+    def make_desc(counter, total, *triples, opt_str=''):
+        desc = "[{}/{}] {}".format(counter, total, opt_str)
         # The three elements of each triple are
         # (name to display, AverageMeter object, formatting string)
         for name, obj, fmt in triples:
@@ -258,6 +267,7 @@ class _Tree:
     def add_node(self, path, val=None):
         if not path.strip():
             raise ValueError("the path is null")
+        path = path.strip('/')
         if val is None:
             val = self._def_val
         names = self.parse_path(path)
@@ -281,6 +291,8 @@ class OutPathGetter:
     def __init__(self, root='', log='logs', out='outs', weight='weights', suffix='', **subs):
         super().__init__()
         self._root = root.rstrip('/')    # Work robustly for multiple ending '/'s
+        if len(self._root) == 0 and len(root) > 0:
+            self._root = '/'    # In case of the system root dir
         self._suffix = suffix
         self._keys = dict(log=log, out=out, weight=weight, **subs)
         self._dir_tree = _Tree(

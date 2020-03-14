@@ -1,8 +1,23 @@
 import random
+import math
 from functools import partial, wraps
 
 import numpy as np
 import cv2
+
+
+__all__ = [
+    'Compose', 'Choose', 
+    'Scale', 'DiscreteScale', 
+    'Flip', 'HorizontalFlip', 'VerticalFlip', 'Rotate', 
+    'Crop', 'MSCrop',
+    'Shift', 'XShift', 'YShift',
+    'HueShift', 'SaturationShift', 'RGBShift', 'RShift', 'GShift', 'BShift',
+    'PCAJitter', 
+    'ContraBrightScale', 'ContrastScale', 'BrightnessScale',
+    'AddGaussNoise'
+]
+
 
 rand = random.random
 randi = random.randint
@@ -11,10 +26,9 @@ uniform = random.uniform
 # gauss = random.gauss
 gauss = random.normalvariate    # This one is thread-safe
 
-# The transformations treat numpy ndarrays only
+# The transformations treat 2-D or 3-D numpy ndarrays only, with the optional 3rd dim as the channel dim
 
 def _istuple(x): return isinstance(x, (tuple, list))
-
 
 class Transform:
     def __init__(self, random_state=False):
@@ -28,6 +42,7 @@ class Transform:
     def _set_rand_param(self):
         raise NotImplementedError
 
+
 class Compose:
     def __init__(self, *tf):
         assert len(tf) > 0
@@ -39,17 +54,27 @@ class Compose:
             x = x[0]
             for tf in self.tfs: x = tf(x)
         return x
-        
+
+
+class Choose:
+    def __init__(self, *tf):
+        assert len(tf) > 1
+        self.tfs = tf
+    def __call__(self, *x):
+        idx = randi(0, len(self.tfs)-1)
+        return self.tfs[idx](*x)
+
+
 class Scale(Transform):
     def __init__(self, scale=(0.5,1.0)):
         if _istuple(scale):
             assert len(scale) == 2
-            self.scale_range = scale #sorted(scale)
-            self.scale = scale[0]
+            self.scale_range = tuple(scale) #sorted(scale)
+            self.scale = float(scale[0])
             super(Scale, self).__init__(random_state=True)
         else:
             super(Scale, self).__init__(random_state=False)
-            self.scale = scale
+            self.scale = float(scale)
     def _transform(self, x):
         # assert x.ndim == 3
         h, w = x.shape[:2]
@@ -61,11 +86,12 @@ class Scale(Transform):
     def _set_rand_param(self):
         self.scale = uniform(*self.scale_range)
         
+
 class DiscreteScale(Scale):
     def __init__(self, bins=(0.5, 0.75), keep_prob=0.5):
         super(DiscreteScale, self).__init__(scale=(min(bins), 1.0))
-        self.bins = bins
-        self.keep_prob = keep_prob
+        self.bins = tuple(bins)
+        self.keep_prob = float(keep_prob)
     def _set_rand_param(self):
         self.scale = 1.0 if rand()<self.keep_prob else choice(self.bins)
 
@@ -115,7 +141,11 @@ class VerticalFlip(Flip):
     def __init__(self, flip=None):
         if flip is not None: flip = self._directions[~flip]
         super(VerticalFlip, self).__init__(direction=flip)
-        
+
+
+class Rotate(Flip):
+    _directions = ('90', '180', '270', 'no')
+
 
 class Crop(Transform):
     _inner_bounds = ('bl', 'br', 'tl', 'tr', 't', 'b', 'l', 'r')
@@ -148,8 +178,10 @@ class Crop(Transform):
         elif self.bounds == 'r':
             return x[:,w//2:]
         elif len(self.bounds) == 2:
-            assert self.crop_size < (h, w)
+            assert self.crop_size <= (h, w)
             ch, cw = self.crop_size
+            if (ch,cw) == (h,w):
+                return x
             cx, cy = int((w-cw+1)*self.bounds[0]), int((h-ch+1)*self.bounds[1])
             return x[cy:cy+ch, cx:cx+cw]
         else:
@@ -188,6 +220,59 @@ class MSCrop(Crop):
         self.bounds = (left, top, left+cw, top+ch)
 
 
+class Shift(Transform):
+    def __init__(self, x_shift=(-0.0625, 0.0625), y_shift=(-0.0625, 0.0625), circular=True):
+        super(Shift, self).__init__(random_state=_istuple(x_shift) or _istuple(y_shift))
+
+        if _istuple(x_shift):
+            self.xshift_range = tuple(x_shift)
+            self.xshift = float(x_shift[0])
+        else:
+            self.xshift = float(x_shift)
+            self.xshift_range = (self.xshift, self.xshift)
+
+        if _istuple(y_shift):
+            self.yshift_range = tuple(y_shift)
+            self.yshift = float(y_shift[0])
+        else:
+            self.yshift = float(y_shift)
+            self.yshift_range = (self.yshift, self.yshift)
+
+        self.circular = circular
+
+    def _transform(self, im):
+        h, w = im.shape[:2]
+        xsh = -int(self.xshift*w)
+        ysh = -int(self.yshift*h)
+        if self.circular:
+            # Shift along the x-axis
+            im_shifted = np.concatenate((im[:, xsh:], im[:, :xsh]), axis=1)
+            # Shift along the y-axis
+            im_shifted = np.concatenate((im_shifted[ysh:], im_shifted[:ysh]), axis=0)
+        else:
+            zeros = np.zeros(im.shape)
+            im1, im2 = (zeros, im) if xsh < 0 else (im, zeros)
+            im_shifted = np.concatenate((im1[:, xsh:], im2[:, :xsh]), axis=1)
+            im1, im2 = (zeros, im_shifted) if ysh < 0 else (im_shifted, zeros)
+            im_shifted = np.concatenate((im1[ysh:], im2[:ysh]), axis=0)
+
+        return im_shifted
+        
+    def _set_rand_param(self):
+        self.xshift = uniform(*self.xshift_range)
+        self.yshift = uniform(*self.yshift_range)
+
+
+class XShift(Shift):
+    def __init__(self, x_shift=(-0.0625, 0.0625), circular=True):
+        super(XShift, self).__init__(x_shift, 0.0, circular)
+
+
+class YShift(Shift):
+    def __init__(self, y_shift=(-0.0625, 0.0625), circular=True):
+        super(YShift, self).__init__(0.0, y_shift, circular)
+
+
 # Color jittering and transformation
 # The followings partially refer to https://github.com/albu/albumentations/
 class _ValueTransform(Transform):
@@ -201,8 +286,12 @@ class _ValueTransform(Transform):
         def wrapper(obj, x):
             # # Make a copy
             # x = x.copy()
-            x = tf(obj, np.clip(x, *obj.limit))
-            return np.clip(x, *obj.limit)
+            dtype = x.dtype
+            # The calculations are done with floating type in case of overflow
+            # This is a stupid yet simple way
+            x = tf(obj, np.clip(x.astype(np.float32), *obj.limit))
+            # Convert back to the original type
+            return np.clip(x, *obj.limit).astype(dtype)
         return wrapper
         
 
@@ -222,7 +311,7 @@ class ColorJitter(_ValueTransform):
         else:
             if _istuple(shift):
                 if len(shift) != _nc:
-                    raise ValueError("specify the shift value (or range) for every channel")
+                    raise ValueError("please specify the shift value (or range) for every channel.")
                 rs = all(_istuple(s) for s in shift)
                 self.shift = self.range = shift
             else:
@@ -233,23 +322,20 @@ class ColorJitter(_ValueTransform):
         self.random_state = rs
         
         def _(x):
-            return x, ()
+            return x
         self.convert_to = _
         self.convert_back = _
     
     @_ValueTransform.keep_range
     def _transform(self, x):
-        # CAUTION! 
-        # Type conversion here
-        x, params = self.convert_to(x)
+        x = self.convert_to(x)
         for i, c in enumerate(self._channel):
-            x[...,c] += self.shift[i]
-            x[...,c] = self._clip(x[...,c])
-        x, _ = self.convert_back(x, *params)
+            x[...,c] = self._clip(x[...,c]+float(self.shift[i]))
+        x = self.convert_back(x)
         return x
         
     def _clip(self, x):
-        return np.clip(x, *self.limit)
+        return x
         
     def _set_rand_param(self):
         if len(self._channel) == 1:
@@ -262,19 +348,21 @@ class HSVShift(ColorJitter):
     def __init__(self, shift, limit):
         super().__init__(shift, limit)
         def _convert_to(x):
-            type_x = x.dtype
             x = x.astype(np.float32)
             # Normalize to [0,1]
             x -= self.limit[0]
             x /= self.limit_range
             x = cv2.cvtColor(x, code=cv2.COLOR_RGB2HSV)
-            return x, (type_x,)
-        def _convert_back(x, type_x):
+            return x
+        def _convert_back(x):
             x = cv2.cvtColor(x.astype(np.float32), code=cv2.COLOR_HSV2RGB)
-            return x.astype(type_x) * self.limit_range + self.limit[0], ()
+            return x * self.limit_range + self.limit[0]
         # Pack conversion methods
         self.convert_to = _convert_to
         self.convert_back = _convert_back
+
+        def _clip(self, x):
+            raise NotImplementedError
         
 
 class HueShift(HSVShift):
@@ -332,7 +420,7 @@ class PCAJitter(_ValueTransform):
         old_shape = x.shape
         x = np.reshape(x, (-1,3), order='F')   # For RGB
         x_mean = np.mean(x, 0)
-        x -= x_mean
+        x = x - x_mean
         cov_x = np.cov(x, rowvar=False)
         eig_vals, eig_vecs = np.linalg.eig(np.mat(cov_x))
         # The eigen vectors are already unit "length"
@@ -354,9 +442,9 @@ class ContraBrightScale(_ValueTransform):
     
     @_ValueTransform.keep_range
     def _transform(self, x):
-        if self.alpha != 1:
+        if not math.isclose(self.alpha, 1.0):
             x *= self.alpha
-        if self.beta != 0:
+        if not math.isclose(self.beta, 0.0):
             x += self.beta*np.mean(x)
         return x
     
@@ -387,7 +475,7 @@ class _AddNoise(_ValueTransform):
     def __call__(self, *args):
         shape = args[0].shape
         if any(im.shape != shape for im in args):
-            raise ValueError("the input images should be of same size")
+            raise ValueError("the input images should be of same size.")
         self._im_shape = shape
         return super().__call__(*args)
         
@@ -399,16 +487,3 @@ class AddGaussNoise(_AddNoise):
         self.sigma = sigma
     def _set_rand_param(self):
         self.noise_map = np.random.randn(*self._im_shape)*self.sigma + self.mu
-        
-
-def __test():
-    a = np.arange(12).reshape((2,2,3)).astype(np.float64)
-    tf = Compose(BrightnessScale(), AddGaussNoise(), HueShift())
-    print(a[...,0])
-    c = tf(a)
-    print(c[...,0])
-    print(a[...,0])
-    
-    
-if __name__ == '__main__':
-    __test()

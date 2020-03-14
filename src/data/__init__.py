@@ -1,4 +1,4 @@
-from os.path import join, expanduser, basename
+from os.path import join, expanduser, basename, exists
 
 import torch
 import torch.utils.data as data
@@ -16,9 +16,12 @@ class CDDataset(data.Dataset):
     ):
         super().__init__()
         self.root = expanduser(root)
+        if not exists(self.root):
+            raise FileNotFoundError
         self.phase = phase
-        self.transforms = transforms
-        self.repeats = repeats
+        self.transforms = list(transforms)
+        self.transforms += [None]*(3-len(self.transforms))
+        self.repeats = int(repeats)
 
         self.t1_list, self.t2_list, self.label_list = self._read_file_paths()
         self.len = len(self.label_list)

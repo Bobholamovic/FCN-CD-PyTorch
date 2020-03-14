@@ -45,3 +45,8 @@ python train.py val --exp-config ../config_base.yaml --resume path_to_checkpoint
 ```
 
 You can find the checkpoints in `exp/base/weights/`, the log files in `exp/base/logs`, and the output change maps in `exp/outs`.
+
+---
+# Changed
+
+2020.3.14 Add the configuration files of my experiments. 

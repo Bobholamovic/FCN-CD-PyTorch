@@ -20,7 +20,7 @@ class Trainer:
         super().__init__()
         context = deepcopy(settings)
         self.ctx = MappingProxyType(vars(context))
-        self.phase = context.cmd
+        self.mode = ('train', 'val').index(context.cmd)
 
         self.logger = R['LOGGER']
         self.gpc = R['GPC']     # Global Path Controller
@@ -44,27 +44,43 @@ class Trainer:
         self.model.to(self.device)
         self.criterion = critn_factory(criterion, context)
         self.criterion.to(self.device)
-        self.optimizer = optim_factory(optimizer, self.model, context)
         self.metrics = metric_factory(context.metrics, context)
 
-        self.train_loader = data_factory(dataset, 'train', context)
-        self.val_loader = data_factory(dataset, 'val', context)
+        if self.is_training:
+            self.train_loader = data_factory(dataset, 'train', context)
+            self.val_loader = data_factory(dataset, 'val', context)
+            self.optimizer = optim_factory(optimizer, self.model, context)
+        else:
+            self.val_loader = data_factory(dataset, 'val', context)
         
         self.start_epoch = 0
-        self._init_max_acc = 0.0
+        self._init_max_acc_and_epoch = (0.0, 0)
 
-    def train_epoch(self):
+    @property
+    def is_training(self):
+        return self.mode == 0
+
+    def train_epoch(self, epoch):
         raise NotImplementedError
 
     def validate_epoch(self, epoch=0, store=False):
         raise NotImplementedError
 
+    def _write_prompt(self):
+        self.logger.dump(input("\nWrite some notes: "))
+
+    def run(self):
+        if self.is_training:
+            self._write_prompt()
+            self.train()
+        else:
+            self.evaluate()
+
     def train(self):
         if self.load_checkpoint:
             self._resume_from_checkpoint()
 
-        max_acc = self._init_max_acc
-        best_epoch = self.get_ckp_epoch()
+        max_acc, best_epoch = self._init_max_acc_and_epoch
 
         for epoch in range(self.start_epoch, self.num_epochs):
             lr = self._adjust_learning_rate(epoch)
@@ -72,8 +88,8 @@ class Trainer:
             self.logger.show_nl("Epoch: [{0}]\tlr {1:.06f}".format(epoch, lr))
 
             # Train for one epoch
-            self.train_epoch()
-
+            self.train_epoch(epoch)
+            
             # Clear the history of metric objects
             for m in self.metrics:
                 m.reset()
@@ -81,7 +97,7 @@ class Trainer:
             # Evaluate the model on validation set
             self.logger.show_nl("Validate")
             acc = self.validate_epoch(epoch=epoch, store=self.save)
-                
+            
             is_best = acc > max_acc
             if is_best:
                 max_acc = acc
@@ -90,14 +106,14 @@ class Trainer:
                                 acc, epoch, max_acc, best_epoch))
 
             # The checkpoint saves next epoch
-            self._save_checkpoint(self.model.state_dict(), self.optimizer.state_dict(), max_acc, epoch+1, is_best)
+            self._save_checkpoint(self.model.state_dict(), self.optimizer.state_dict(), (max_acc, best_epoch), epoch+1, is_best)
         
-    def validate(self):
+    def evaluate(self):
         if self.checkpoint: 
             if self._resume_from_checkpoint():
-                self.validate_epoch(self.get_ckp_epoch(), self.save)
+                self.validate_epoch(self.ckp_epoch, self.save)
         else:
-            self.logger.warning("no checkpoint assigned!")
+            self.logger.warning("Warning: no checkpoint assigned!")
 
     def _adjust_learning_rate(self, epoch):
         if self.ctx['lr_mode'] == 'step':
@@ -114,13 +130,14 @@ class Trainer:
         return lr
 
     def _resume_from_checkpoint(self):
+        ## XXX: This could be slow!
         if not os.path.isfile(self.checkpoint):
-            self.logger.error("=> no checkpoint found at '{}'".format(self.checkpoint))
+            self.logger.error("=> No checkpoint was found at '{}'.".format(self.checkpoint))
             return False
 
-        self.logger.show("=> loading checkpoint '{}'".format(
+        self.logger.show("=> Loading checkpoint '{}'".format(
                         self.checkpoint))
-        checkpoint = torch.load(self.checkpoint)
+        checkpoint = torch.load(self.checkpoint, map_location=self.device)
 
         state_dict = self.model.state_dict()
         ckp_dict = checkpoint.get('state_dict', checkpoint)
@@ -129,32 +146,35 @@ class Trainer:
         
         num_to_update = len(update_dict)
         if (num_to_update < len(state_dict)) or (len(state_dict) < len(ckp_dict)):
-            if self.phase == 'val' and (num_to_update < len(state_dict)):
-                self.logger.error("=> mismatched checkpoint for validation")
+            if not self.is_training and (num_to_update < len(state_dict)):
+                self.logger.error("=> Mismatched checkpoint for evaluation")
                 return False
-            self.logger.warning("warning: trying to load an mismatched checkpoint")
+            self.logger.warning("Warning: trying to load an mismatched checkpoint.")
             if num_to_update == 0:
-                self.logger.error("=> no parameter is to be loaded")
+                self.logger.error("=> No parameter is to be loaded.")
                 return False
             else:
-                self.logger.warning("=> {} params are to be loaded".format(num_to_update))
-        elif (not self.ctx['anew']) or (self.phase != 'train'):
-            # Note in the non-anew mode, it is not guaranteed that the contained field 
-            # max_acc be the corresponding one of the loaded checkpoint.
-            self.start_epoch = checkpoint.get('epoch', self.start_epoch)
-            self._init_max_acc = checkpoint.get('max_acc', self._init_max_acc)
-            if self.ctx['load_optim']:
+                self.logger.warning("=> {} params are to be loaded.".format(num_to_update))
+        elif (not self.ctx['anew']) or not self.is_training:
+            self.start_epoch = checkpoint.get('epoch', 0)
+            max_acc_and_epoch = checkpoint.get('max_acc', (0.0, self.ckp_epoch))
+            # For backward compatibility
+            if isinstance(max_acc_and_epoch, (float, int)):
+                self._init_max_acc_and_epoch = (max_acc_and_epoch, self.ckp_epoch)
+            else:
+                self._init_max_acc_and_epoch = max_acc_and_epoch
+            if self.ctx['load_optim'] and self.is_training:
                 try:
                     # Note that weight decay might be modified here
                     self.optimizer.load_state_dict(checkpoint['optimizer'])
                 except KeyError:
-                    self.logger.warning("warning: failed to load optimizer parameters")
+                    self.logger.warning("Warning: failed to load optimizer parameters.")
 
         state_dict.update(update_dict)
         self.model.load_state_dict(state_dict)
 
-        self.logger.show("=> loaded checkpoint '{}' (epoch {}, max_acc {:.4f})".format(
-            self.checkpoint, self.get_ckp_epoch(), self._init_max_acc
+        self.logger.show("=> Loaded checkpoint '{}' (epoch {}, max_acc {:.4f} at epoch {})".format(
+            self.checkpoint, self.ckp_epoch, *self._init_max_acc_and_epoch
             ))
         return True
         
@@ -183,7 +203,8 @@ class Trainer:
                 )
             )
     
-    def get_ckp_epoch(self):
+    @property
+    def ckp_epoch(self):
         # Get current epoch of the checkpoint
         # For dismatched ckp or no ckp, set to 0
         return max(self.start_epoch-1, 0)
@@ -207,7 +228,7 @@ class CDTrainer(Trainer):
     def __init__(self, arch, dataset, optimizer, settings):
         super().__init__(arch, dataset, 'NLL', optimizer, settings)
 
-    def train_epoch(self):
+    def train_epoch(self, epoch):
         losses = AverageMeter()
         len_train = len(self.train_loader)
         pb = tqdm(self.train_loader)
@@ -246,7 +267,7 @@ class CDTrainer(Trainer):
 
         with torch.no_grad():
             for i, (name, t1, t2, label) in enumerate(pb):
-                if self.phase == 'train' and i >= 16: 
+                if self.is_training and i >= 16: 
                     # Do not validate all images on training phase
                     pb.close()
                     self.logger.warning("validation ends early")

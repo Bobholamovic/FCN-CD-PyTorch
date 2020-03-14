@@ -131,7 +131,7 @@ def main():
     args = parse_args()
     gpc, logger = set_gpc_and_logger(args)
 
-    if exists(args.exp_config):
+    if args.exp_config:
         # Make a copy of the config file
         cfg_path = gpc.get_path('root', basename(args.exp_config), suffix=False)
         shutil.copy(args.exp_config, cfg_path)
@@ -147,16 +147,11 @@ def main():
 
     try:
         trainer = CDTrainer(args.model, args.dataset, args.optimizer, args)
-        if args.cmd == 'train':
-            trainer.train()
-        elif args.cmd == 'val':
-            trainer.validate()
-        else:
-            pass
+        trainer.run()
     except BaseException as e:
         import traceback
         # Catch ALL kinds of exceptions
-        logger.error(traceback.format_exc())
+        logger.fatal(traceback.format_exc())
         exit(1)
 
 if __name__ == '__main__':
