@@ -173,7 +173,7 @@ def _get_basic_configs(ds_name, C):
         )
     elif ds_name.startswith('AC'):
         return dict(
-            root = constants.IMDB_AirChange
+            root = constants.IMDB_AIRCHANGE
         )
     elif ds_name.startswith('Lebedev'):
         return dict(
@@ -247,7 +247,7 @@ def single_val_ds_factory(ds_name, C):
         dataset_obj,
         batch_size=1,
         shuffle=False,
-        num_workers=C.num_workers,
+        num_workers=1,
         pin_memory=False, drop_last=False
     )
 
