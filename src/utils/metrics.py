@@ -23,6 +23,11 @@ class AverageMeter:
         self.sum = 0
         self.count = 0
 
+        for attr in filter(lambda a: not a.startswith('__'), dir(self)):
+            obj = getattr(self, attr)
+            if isinstance(obj, AverageMeter):
+                AverageMeter.reset(obj)
+
     def update(self, *args, n=1):
         self.val = self.compute(*args)
         self.sum += self.val * n
