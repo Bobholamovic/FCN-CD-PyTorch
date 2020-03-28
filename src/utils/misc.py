@@ -9,6 +9,13 @@ FORMAT_LONG = "[%(asctime)-15s %(funcName)s] %(message)s"
 FORMAT_SHORT = "%(message)s"
 
 
+class _LessThanFilter(logging.Filter):
+    def __init__(self, max_level, name=''):
+        super().__init__(name=name)
+        self.max_level = getattr(logging, max_level.upper()) if isinstance(max_level, str) else int(max_level)
+    def filter(self, record):
+        return record.levelno < self.max_level
+
 class Logger:
     _count = 0
 
@@ -19,13 +26,14 @@ class Logger:
         self._logger.setLevel(logging.DEBUG)
 
         self._err_handler = logging.StreamHandler(stream=sys.stderr)
-        self._err_handler.setLevel(logging.ERROR)
+        self._err_handler.setLevel(logging.WARNING)
         self._err_handler.setFormatter(logging.Formatter(fmt=FORMAT_SHORT))
         self._logger.addHandler(self._err_handler)
 
         if scrn:
             self._scrn_handler = logging.StreamHandler(stream=sys.stdout)
             self._scrn_handler.setLevel(logging.INFO)
+            self._scrn_handler.addFilter(_LessThanFilter(logging.WARNING))
             self._scrn_handler.setFormatter(logging.Formatter(fmt=FORMAT_SHORT))
             self._logger.addHandler(self._scrn_handler)
             
