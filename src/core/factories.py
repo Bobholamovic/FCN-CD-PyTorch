@@ -175,7 +175,7 @@ def _get_basic_configs(ds_name, C):
         return dict(
             root = constants.IMDB_AIRCHANGE
         )
-    elif ds_name.startswith('Lebedev'):
+    elif ds_name == 'Lebedev':
         return dict(
             root = constants.IMDB_LEBEDEV
         )
