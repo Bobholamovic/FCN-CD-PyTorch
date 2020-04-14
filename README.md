@@ -20,7 +20,7 @@ as the [official repo](https://github.com/rcdaudt/fully_convolutional_change_det
 
 Tested on Python 3.7.4, Ubuntu 16.04 and Python 3.6.8, Windows 10.
 
-# Basic Usage
+# Basic usage
 
 ```bash
 # The network definition scripts are from the original repo
@@ -46,7 +46,7 @@ python train.py val --exp-config ../config_base.yaml --resume path_to_checkpoint
 
 You can find the checkpoints in `exp/base/weights/`, the log files in `exp/base/logs`, and the output change maps in `exp/base/outs`.
 
-# Train on Air Change Dataset and OSCD Dataset
+# Train on Air Change dataset and OSCD dataset
 
 To carry out a full training on these two datasets and with all three architectures, run the `train9.sh` script under the root folder of this repo.
 ```bash
@@ -102,5 +102,5 @@ Now the experiment results are organized in a more structured way, and I think i
 ---
 # Changed
 
-2020.3.14 Add the configuration files of my experiments. 
-2020.4.14 Detail README.md.
+- 2020.3.14 Add the configuration files of my experiments. 
+- 2020.4.14 Detail README.md.
