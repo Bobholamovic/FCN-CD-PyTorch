@@ -59,6 +59,9 @@ class _AirChangeDataset(CDDataset):
         label = (label / 255.0).astype(np.uint8)    # To 0,1
         return label if self.phase == 'train' else self.cropper(label)
 
+    def get_name(self, index):
+        return '{loc}-{id}-cm.bmp'.format(loc=self.LOCATION, id=index)
+
     @staticmethod
     def _bmp_loader(bmp_path_wo_ext):
         # Case insensitive .bmp loader

@@ -1,4 +1,4 @@
-from os.path import join, expanduser, basename, exists
+from os.path import join, expanduser, basename, exists, splitext
 
 import torch
 import torch.utils.data as data
@@ -41,7 +41,7 @@ class CDDataset(data.Dataset):
         if self.phase == 'train':
             return t1, t2, label
         else:
-            return basename(self.label_list[index]), t1, t2, label
+            return self.get_name(index), t1, t2, label
 
     def _read_file_paths(self):
         raise NotImplementedError
@@ -51,6 +51,9 @@ class CDDataset(data.Dataset):
 
     def fetch_image(self, image_path):
         return default_loader(image_path)
+
+    def get_name(self, index):
+        return splitext(basename(self.label_list[index]))[0]+'.bmp'
 
     def preprocess(self, t1, t2, label):
         if self.transforms[0] is not None:
