@@ -98,6 +98,13 @@ After training, I get my `exp/` folder like this:
 
 Now the experiment results are organized in a more structured way, and I think it would be a little bit easier to collect the statistics. Also, since the historical experiments are arranged in neat order, you will soon remember what you'd done when you come back to these results, even after a long time.
 
+Alternatively, you can configure from the command line. This can be useful when there is only minor change between two single runs, because the configuration items from the command line is set to overwrite those from the `yaml` file. That is, the final value of each configuration item is evaluated and applied in the following order:
+
+```
+default_value -> value_from_config_file -> value_from_command_line
+```
+
+At least one of the above three values should be given. In this way, you don't have to include all of the config items in the `yaml` file or in the command-line input. You can use either of them, or combine them. Make your choice according to preference and circumstances.
 
 ---
 # Changed
