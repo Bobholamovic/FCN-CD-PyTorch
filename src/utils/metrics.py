@@ -66,9 +66,12 @@ class Metric(AverageMeter):
             return self._compute(cm)[1]
 
     def update(self, pred, true, n=1):
-        # Note that this is no thread-safe
         self._cm.update(true.ravel(), pred.ravel())
         if self.mode == 'accum':
+            # Note that accumulation mode is special in that metric.val saves historical information.
+            # Therefore, metric.avg IS USUALLY NOT THE "AVERAGE" VALUE YOU WANT!!! 
+            # Instead, metric.val is the averaged result in the sense of metric.avg in separ mode, 
+            # while metric.avg can be considered as some average of average.
             cm = self._cm.sum
         elif self.mode == 'separ':
             cm = self._cm.val
