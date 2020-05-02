@@ -62,6 +62,7 @@ def parse_args():
     group_train.add_argument('--num-epochs', type=int, default=1000, metavar='NE',
                         help='number of epochs to train (default: %(default)s)')
     group_train.add_argument('--load-optim', action='store_true')
+    group_train.add_argument('--save-optim', action='store_true')
     group_train.add_argument('--resume', default='', type=str, metavar='PATH',
                         help='path to latest checkpoint')
     group_train.add_argument('--anew', action='store_true',
