@@ -44,4 +44,4 @@ class LebedevDataset(CDDataset):
 
     def fetch_label(self, label_path):
         # To {0,1}
-        return (super().fetch_label(label_path) / 255.0).astype(np.uint8)  
+        return (super().fetch_label(label_path) > 127).astype(np.uint8)  
