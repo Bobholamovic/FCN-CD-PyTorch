@@ -15,6 +15,6 @@ for arch in ${ARCHS[@]}
 do
     for dataset in ${DATASETS[@]}
     do
-        python train.py train --exp-config ../config_${arch}_${dataset}.yaml
+        python train.py train --exp-config ../configs/config_${arch}_${dataset}.yaml
     done
 done
