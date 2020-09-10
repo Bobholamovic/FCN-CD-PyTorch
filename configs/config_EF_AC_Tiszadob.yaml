@@ -24,7 +24,7 @@ resume: ''
 load_optim: True
 save_optim: True
 anew: False
-trace_freq: 1
+track_intvl: 1
 device: cuda
 metrics: 'F1Score+Accuracy+Recall+Precision'
 

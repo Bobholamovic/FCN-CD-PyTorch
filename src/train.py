@@ -67,7 +67,7 @@ def parse_args():
                         help='path to latest checkpoint')
     group_train.add_argument('--anew', action='store_true',
                         help='clear history and start from epoch 0 with the checkpoint loaded')
-    group_train.add_argument('--trace-freq', type=int, default=50)
+    group_train.add_argument('--track_intvl', type=int, default=50)
     group_train.add_argument('--device', type=str, default='cpu')
     group_train.add_argument('--metrics', type=str, default='F1Score+Accuracy+Recall+Precision')
 

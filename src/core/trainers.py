@@ -33,7 +33,7 @@ class Trainer:
         self.lr = float(context.lr)
         self.save = context.save_on or context.out_dir
         self.out_dir = context.out_dir
-        self.trace_freq = int(context.trace_freq)
+        self.track_intvl = int(context.track_intvl)
         self.device = torch.device(context.device)
         self.suffix_off = context.suffix_off
 
@@ -188,7 +188,7 @@ class Trainer:
         } 
         # Save history
         history_path = self.path('weight', constants.CKP_COUNTED.format(e=epoch), underline=True)
-        if epoch % self.trace_freq == 0:
+        if epoch % self.track_intvl == 0:
             torch.save(state, history_path)
         # Save latest
         latest_path = self.path(
