@@ -142,6 +142,7 @@ def main():
     random.seed(RNG_SEED)
     np.random.seed(RNG_SEED)
     torch.manual_seed(RNG_SEED)
+    torch.cuda.manual_seed(RNG_SEED)
 
     cudnn.deterministic = True
     cudnn.benchmark = False
