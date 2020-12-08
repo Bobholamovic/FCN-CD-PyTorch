@@ -2,51 +2,54 @@
 
 
 # Data
-# Common
-dataset: Lebedev
-crop_size: 224
-num_workers: 1
-repeats: 1
+dataset: AC_Szada
+num_workers: 0
+repeats: 3200
+subset: val
+crop_size: 112
 
 
 # Optimizer
-optimizer: Adam
-lr: 1e-4
-lr_mode: step
-weight_decay: 0.0
-step: 5
+optimizer: SGD
+lr: 0.001
+weight_decay: 0.0005
+load_optim: False
+save_optim: False
+lr_mode: const
+step: 2
 
 
 # Training related
-batch_size: 8 
-num_epochs: 15
+batch_size: 32
+num_epochs: 10
 resume: ''
-load_optim: True
-save_optim: True
 anew: False
-track_intvl: 1
 device: cuda
-metrics: 'F1Score+Accuracy+Recall+Precision'
 
 
 # Experiment
 exp_dir: ../exp/
-out_dir: ''
 # tag: ''
 # suffix: ''
-# DO NOT specify exp-config term
-save_on: False
+# DO NOT specify exp_config
+debug_on: False
+inherit_off: True
 log_off: False
+track_intvl: 1
+tb_on: False
+tb_intvl: 100
 suffix_off: False
+save_on: False
+out_dir: ''
+val_iters: 16
 
 
 # Criterion
 criterion: NLL
 weights: 
-  - 0.117   # Weight of no-change class
-  - 0.883   # Weight of change class
+  - 1.0   # Weight of no-change class
+  - 10.0   # Weight of change class
 
 
 # Model
-model: EF
-num_feats_in: 6
+model: Unet

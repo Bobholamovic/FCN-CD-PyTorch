@@ -5,10 +5,11 @@ from sklearn import metrics
 
 
 class AverageMeter:
-    def __init__(self, callback=None):
+    def __init__(self, callback=None, calc_avg=True):
         super().__init__()
         if callback is not None:
             self.compute = callback
+        self.calc_avg = calc_avg
         self.reset()
 
     def compute(self, *args):
@@ -19,9 +20,10 @@ class AverageMeter:
 
     def reset(self):
         self.val = 0
-        self.avg = 0
         self.sum = 0
         self.count = 0
+        if self.calc_avg:
+            self.avg = 0
 
         for attr in filter(lambda a: not a.startswith('__'), dir(self)):
             obj = getattr(self, attr)
@@ -32,23 +34,24 @@ class AverageMeter:
         self.val = self.compute(*args)
         self.sum += self.val * n
         self.count += n
-        self.avg = self.sum / self.count
+        if self.calc_avg:
+            self.avg = self.sum / self.count
 
     def __repr__(self):
-        return 'val: {} avg: {} cnt: {}'.format(self.val, self.avg, self.count)
+        return "val: {} avg: {} cnt: {}".format(self.val, self.avg, self.count)
 
 
 # These metrics only for numpy arrays
 class Metric(AverageMeter):
     __name__ = 'Metric'
     def __init__(self, n_classes=2, mode='separ', reduction='binary'):
-        super().__init__(None)
-        self._cm = AverageMeter(partial(metrics.confusion_matrix, labels=np.arange(n_classes)))
         assert mode in ('accum', 'separ')
-        self.mode = mode
         assert reduction in ('mean', 'none', 'binary')
+        super().__init__(None, mode!='accum')
+        self._cm = AverageMeter(partial(metrics.confusion_matrix, labels=np.arange(n_classes)), False)
+        self.mode = mode
         if reduction == 'binary' and n_classes != 2:
-            raise ValueError("binary reduction only works in 2-class cases")
+            raise ValueError("Binary reduction only works in 2-class cases.")
         self.reduction = reduction
     
     def _compute(self, cm):
@@ -68,10 +71,6 @@ class Metric(AverageMeter):
     def update(self, pred, true, n=1):
         self._cm.update(true.ravel(), pred.ravel())
         if self.mode == 'accum':
-            # Note that accumulation mode is special in that metric.val saves historical information.
-            # Therefore, metric.avg IS USUALLY NOT THE "AVERAGE" VALUE YOU WANT!!! 
-            # Instead, metric.val is the averaged result in the sense of metric.avg in separ mode, 
-            # while metric.avg can be considered as some average of average.
             cm = self._cm.sum
         elif self.mode == 'separ':
             cm = self._cm.val
@@ -80,7 +79,7 @@ class Metric(AverageMeter):
         super().update(cm, n=n)
 
     def __repr__(self):
-        return self.__name__+' '+super().__repr__()
+        return self.__name__+" "+super().__repr__()
 
 
 class Precision(Metric):

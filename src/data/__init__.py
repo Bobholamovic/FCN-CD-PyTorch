@@ -1,69 +1,62 @@
-from os.path import join, expanduser, basename, exists, splitext
+from os.path import basename, splitext
 
 import torch
 import torch.utils.data as data
 import numpy as np
 
-from .common import (default_loader, to_tensor)
+from core.data import DatasetBase
+from utils.data_utils import (default_loader, to_tensor)
 
 
-class CDDataset(data.Dataset):
+class CDDataset(DatasetBase):
     def __init__(
         self, 
         root, phase,
         transforms,
-        repeats
+        repeats, 
+        subset
     ):
-        super().__init__()
-        self.root = expanduser(root)
-        if not exists(self.root):
-            raise FileNotFoundError
-        self.phase = phase
-        self.transforms = list(transforms)
+        super().__init__(root, phase, transforms, repeats, subset)
+        self.transforms = list(self.transforms)
         self.transforms += [None]*(3-len(self.transforms))
-        self.repeats = int(repeats)
-
-        self.t1_list, self.t2_list, self.label_list = self._read_file_paths()
-        self.len = len(self.label_list)
+        self.t1_list, self.t2_list, self.tar_list = self._read_file_paths()
+        self.len = len(self.tar_list)
 
     def __len__(self):
         return self.len * self.repeats
 
-    def __getitem__(self, index):
-        if index >= len(self):
-            raise IndexError
-        index = index % self.len
-        
+    def fetch_and_preprocess(self, index):
         t1 = self.fetch_image(self.t1_list[index])
         t2 = self.fetch_image(self.t2_list[index])
-        label = self.fetch_label(self.label_list[index])
-        t1, t2, label = self.preprocess(t1, t2, label)
+        tar = self.fetch_target(self.tar_list[index])
+        t1, t2, tar = self.preprocess(t1, t2, tar)
+        
         if self.phase == 'train':
-            return t1, t2, label
+            return t1, t2, tar
         else:
-            return self.get_name(index), t1, t2, label
+            return self.get_name(index), t1, t2, tar
 
     def _read_file_paths(self):
         raise NotImplementedError
         
-    def fetch_label(self, label_path):
-        return default_loader(label_path)
+    def fetch_target(self, target_path):
+        return default_loader(target_path)
 
     def fetch_image(self, image_path):
         return default_loader(image_path)
 
     def get_name(self, index):
-        return splitext(basename(self.label_list[index]))[0]+'.bmp'
+        return splitext(basename(self.tar_list[index]))[0]+'.bmp'
 
-    def preprocess(self, t1, t2, label):
+    def preprocess(self, t1, t2, tar):
         if self.transforms[0] is not None:
-            # Applied on all
-            t1, t2, label = self.transforms[0](t1, t2, label)
+            # Applied to all
+            t1, t2, tar = self.transforms[0](t1, t2, tar)
         if self.transforms[1] is not None:
-            # For images solely
+            # Solely for images
             t1, t2 = self.transforms[1](t1, t2)
         if self.transforms[2] is not None:
-            # For labels solely
-            label = self.transforms[2](label)
+            # Solely for labels
+            tar = self.transforms[2](tar)
         
-        return to_tensor(t1).float(), to_tensor(t2).float(), to_tensor(label).long()
+        return to_tensor(t1).float(), to_tensor(t2).float(), to_tensor(tar).long()

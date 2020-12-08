@@ -1,4 +1,4 @@
-from ._AirChange import _AirChangeDataset
+from ._airchange import _AirChangeDataset
 
 
 class AC_TiszadobDataset(_AirChangeDataset):
@@ -6,9 +6,10 @@ class AC_TiszadobDataset(_AirChangeDataset):
         self, 
         root, phase='train', 
         transforms=(None, None, None), 
-        repeats=1
+        repeats=1,
+        subset='val'
     ):
-        super().__init__(root, phase, transforms, repeats)
+        super().__init__(root, phase, transforms, repeats, subset)
 
     @property
     def LOCATION(self):
