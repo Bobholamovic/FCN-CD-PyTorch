@@ -225,7 +225,8 @@ class _Tree:
         r"""
         This is different from a travasal in that this search allows early stop.
         """
-        assert mode in ('name', 'path', 'val')
+        if mode not in ('name', 'path', 'val'):
+            raise NotImplementedError("Invalid mode")
         if mode == 'path':
             nodes = self.parse_path(tar)
             root = self.root

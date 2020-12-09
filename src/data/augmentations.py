@@ -61,7 +61,8 @@ class Transform:
 
 class Compose:
     def __init__(self, *tfs):
-        assert len(tfs) > 0
+        if len(tfs) == 0:
+            raise ValueError("The transformation sequence should contain at least one element.")
         self.tfs = tfs
 
     def __call__(self, *x):
@@ -80,7 +81,8 @@ class Compose:
 
 class Choose:
     def __init__(self, *tfs):
-        assert len(tfs) > 1
+        if len(tfs) < 2:
+            raise ValueError("The transformation sequence should contain at least two elements.")
         self.tfs = tfs
 
     def __call__(self, *x):
@@ -94,7 +96,8 @@ class Scale(Transform):
     def __init__(self, scale=(0.5, 1.0), prob_apply=1.0):
         super(Scale, self).__init__(rand_state=_isseq(scale), prob_apply=prob_apply)
         if _isseq(scale):
-            assert len(scale) == 2
+            if len(scale) != 2:
+                raise ValueError
             self.scale = tuple(scale)
         else:
             self.scale = float(scale)
@@ -136,7 +139,8 @@ class FlipRotate(Transform):
     def __init__(self, direction=None, prob_apply=1.0):
         super(FlipRotate, self).__init__(rand_state=(direction is None), prob_apply=prob_apply)
         if direction is not None: 
-            assert direction in self._DIRECTIONS
+            if direction not in self._DIRECTIONS:
+                raise ValueError("Invalid direction")
             self.direction = direction
 
     def _transform(self, x, params):
@@ -206,7 +210,8 @@ class Crop(Transform):
         _no_bounds = (bounds is None)
         super(Crop, self).__init__(rand_state=_no_bounds, prob_apply=prob_apply)
         if _no_bounds:
-            assert crop_size is not None
+            if crop_size is None:
+                raise TypeError("crop_size should be specified if bounds is set to None.")
         else:
             if not((_isseq(bounds) and len(bounds)==4) or (isinstance(bounds, str) and bounds in self._INNER_BOUNDS)):
                 raise ValueError("Invalid bounds")
@@ -237,7 +242,8 @@ class Crop(Transform):
                 left, top, right, lower = bounds
                 return x[top:lower, left:right]
         else:
-            assert self.crop_size <= (h, w)
+            if self.crop_size > (h, w):
+                raise ValueError("Image size is smaller than cropping size.")
             ch, cw = self.crop_size
             if (ch,cw) == (h,w):
                 return x
@@ -262,7 +268,8 @@ class CenterCrop(Transform):
 
         ch, cw = self.crop_size
 
-        assert ch<=h and cw<=w
+        if ch>h or cw>w:
+            raise ValueError("Image size is smaller than cropping size.")
         
         offset_up = (h-ch)//2
         offset_left = (w-cw)//2

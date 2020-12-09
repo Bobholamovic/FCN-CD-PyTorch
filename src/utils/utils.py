@@ -19,7 +19,7 @@ def mod_crop(blob, N):
             nh = h - h % N
             nw = w - w % N
             return blob[..., :nh, :nw]
-            
+
 
 class HookHelper:
     def __init__(self, model, fetch_dict, out_dict, hook_type='forward_out'):
@@ -38,7 +38,8 @@ class HookHelper:
         self.out_dict = weakref.WeakValueDictionary(out_dict)
         self._handles = []
 
-        assert hook_type in ('forward_in', 'forward_out', 'backward_out')
+        if hook_type not in ('forward_in', 'forward_out', 'backward_out'):
+            raise NotImplementedError("Hook type is not implemented.")
 
         def _proto_hook(x, entry):
             # x should be a tensor or a tuple

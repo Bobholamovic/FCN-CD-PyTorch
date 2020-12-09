@@ -8,11 +8,11 @@ class AverageMeter:
     def __init__(self, callback=None, calc_avg=True):
         super().__init__()
         if callback is not None:
-            self.compute = callback
-        self.calc_avg = calc_avg
+            self.calculate = callback
+        self.calc_avg = bool(calc_avg)
         self.reset()
 
-    def compute(self, *args):
+    def calculate(self, *args):
         if len(args) == 1:
             return args[0]
         else:
@@ -25,58 +25,59 @@ class AverageMeter:
         if self.calc_avg:
             self.avg = 0
 
-        for attr in filter(lambda a: not a.startswith('__'), dir(self)):
-            obj = getattr(self, attr)
-            if isinstance(obj, AverageMeter):
-                AverageMeter.reset(obj)
-
     def update(self, *args, n=1):
-        self.val = self.compute(*args)
+        self.val = self.calculate(*args)
         self.sum += self.val * n
         self.count += n
         if self.calc_avg:
             self.avg = self.sum / self.count
 
     def __repr__(self):
-        return "val: {} avg: {} cnt: {}".format(self.val, self.avg, self.count)
+        if self.calc_avg:
+            return "val: {} avg: {} cnt: {}".format(self.val, self.avg, self.count)
+        else:
+            return "val: {} cnt: {}".format(self.val, self.count)
 
 
 # These metrics only for numpy arrays
 class Metric(AverageMeter):
     __name__ = 'Metric'
     def __init__(self, n_classes=2, mode='separ', reduction='binary'):
-        assert mode in ('accum', 'separ')
-        assert reduction in ('mean', 'none', 'binary')
-        super().__init__(None, mode!='accum')
+        if mode not in ('accum', 'separ'):
+            raise ValueError("Invalid working mode")
+        if reduction not in ('mean', 'none', 'binary'):
+            raise ValueError("Invalid reduction type")
         self._cm = AverageMeter(partial(metrics.confusion_matrix, labels=np.arange(n_classes)), False)
         self.mode = mode
         if reduction == 'binary' and n_classes != 2:
             raise ValueError("Binary reduction only works in 2-class cases.")
         self.reduction = reduction
+        super().__init__(None, mode!='accum')
     
-    def _compute(self, cm):
+    def _calculate_metric(self, cm):
         raise NotImplementedError
 
-    def compute(self, cm):
-        if self.reduction == 'none':
-            # Do not reduce size
-            return self._compute(cm)
-        elif self.reduction == 'mean':
-            # Micro averaging
-            return self._compute(cm).mean()
-        else:
-            # The pos_class be 1
-            return self._compute(cm)[1]
-
-    def update(self, pred, true, n=1):
+    def calculate(self, pred, true, n=1):
         self._cm.update(true.ravel(), pred.ravel())
         if self.mode == 'accum':
             cm = self._cm.sum
         elif self.mode == 'separ':
             cm = self._cm.val
-        else:
-            raise NotImplementedError
-        super().update(cm, n=n)
+
+        if self.reduction == 'none':
+            # Do not reduce size
+            return self._calculate_metric(cm)
+        elif self.reduction == 'mean':
+            # Micro averaging
+            return self._calculate_metric(cm).mean()
+        elif self.reduction == 'binary':
+            # The pos_class be 1
+            return self._calculate_metric(cm)[1]
+
+    def reset(self):
+        super().reset()
+        # Reset the confusion matrix
+        self._cm.reset()
 
     def __repr__(self):
         return self.__name__+" "+super().__repr__()
@@ -84,13 +85,13 @@ class Metric(AverageMeter):
 
 class Precision(Metric):
     __name__ = 'Prec.'
-    def _compute(self, cm):
+    def _calculate_metric(self, cm):
         return np.nan_to_num(np.diag(cm)/cm.sum(axis=0))
 
 
 class Recall(Metric):
     __name__ = 'Recall'
-    def _compute(self, cm):
+    def _calculate_metric(self, cm):
         return np.nan_to_num(np.diag(cm)/cm.sum(axis=1))
 
 
@@ -98,13 +99,14 @@ class Accuracy(Metric):
     __name__ = 'OA'
     def __init__(self, n_classes=2, mode='separ'):
         super().__init__(n_classes=n_classes, mode=mode, reduction='none')
-    def _compute(self, cm):
+        
+    def _calculate_metric(self, cm):
         return np.nan_to_num(np.diag(cm).sum()/cm.sum())
 
 
 class F1Score(Metric):
     __name__ = 'F1'
-    def _compute(self, cm):
+    def _calculate_metric(self, cm):
         prec = np.nan_to_num(np.diag(cm)/cm.sum(axis=0))
         recall = np.nan_to_num(np.diag(cm)/cm.sum(axis=1))
         return np.nan_to_num(2*(prec*recall) / (prec+recall))

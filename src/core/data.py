@@ -53,11 +53,13 @@ class DatasetBase(data.Dataset, metaclass=ABCMeta):
             raise FileNotFoundError
         # phase stands for the working mode,
         # 'train' for training and 'eval' for validating or testing.
-        assert phase in ('train', 'eval')
+        if phase not in ('train', 'eval'):
+            raise ValueError("Invalid phase")
         # subset is the sub-dataset to use.
         # For some datasets there are three subsets,
         # while for others there are only train and test(val).
-        assert subset in ('train', 'val', 'test')
+        if subset not in ('train', 'val', 'test'):
+            raise ValueError("Invalid subset")
         self.phase = phase
         self.transforms = transforms
         self.repeats = int(repeats)

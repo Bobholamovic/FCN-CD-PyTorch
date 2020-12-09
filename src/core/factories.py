@@ -57,7 +57,8 @@ class Duck(Sequence, ABC):
 
 class DuckMeta(ABCMeta):
     def __new__(cls, name, bases, attrs):
-        assert len(bases) == 1  # Multiple inheritance is not yet supported.
+        if len(bases) > 1:
+            raise NotImplementedError("Multiple inheritance is not yet supported.")
         members = dict(getmembers(bases[0]))  # Trade space for time
 
         for k in attrs['__ava__']:
