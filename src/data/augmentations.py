@@ -31,8 +31,8 @@ def _isseq(x): return isinstance(x, (tuple, list))
 
 class Transform:
     def __init__(self, rand_state=False, prob_apply=1.0):
-        self._rand_state = bool(rand_state)
-        self.prob_apply = float(prob_apply)
+        self._rand_state = rand_state
+        self.prob_apply = prob_apply
 
     def _transform(self, x, params):
         raise NotImplementedError
@@ -100,7 +100,7 @@ class Scale(Transform):
                 raise ValueError
             self.scale = tuple(scale)
         else:
-            self.scale = float(scale)
+            self.scale = scale
 
     def _transform(self, x, params):
         if self._rand_state:
@@ -138,10 +138,7 @@ class FlipRotate(Transform):
     _DIRECTIONS = ('ud', 'lr', '90', '180', '270')
     def __init__(self, direction=None, prob_apply=1.0):
         super(FlipRotate, self).__init__(rand_state=(direction is None), prob_apply=prob_apply)
-        if direction is not None: 
-            if direction not in self._DIRECTIONS:
-                raise ValueError("Invalid direction")
-            self.direction = direction
+        self.direction = direction
 
     def _transform(self, x, params):
         if self._rand_state:
@@ -212,9 +209,6 @@ class Crop(Transform):
         if _no_bounds:
             if crop_size is None:
                 raise TypeError("crop_size should be specified if bounds is set to None.")
-        else:
-            if not((_isseq(bounds) and len(bounds)==4) or (isinstance(bounds, str) and bounds in self._INNER_BOUNDS)):
-                raise ValueError("Invalid bounds")
         self.bounds = bounds
         self.crop_size = crop_size if _isseq(crop_size) else (crop_size, crop_size)
 
@@ -287,12 +281,12 @@ class Shift(Transform):
         if _isseq(xshift):
             self.xshift = tuple(xshift)
         else:
-            self.xshift = float(xshift)
+            self.xshift = xshift
 
         if _isseq(yshift):
             self.yshift = tuple(yshift)
         else:
-            self.yshift = float(yshift)
+            self.yshift = yshift
 
         self.circular = circular
 
@@ -368,12 +362,12 @@ class ContrastBrightScale(_ValueTransform):
         if _isseq(alpha):
             self.alpha = tuple(alpha)
         else:
-            self.alpha = float(alpha)
+            self.alpha = alpha
 
         if _isseq(beta):
             self.beta = tuple(beta)
         else:
-            self.beta = float(beta)
+            self.beta = beta
     
     @_ValueTransform.keep_range
     def _transform(self, x, params):
@@ -406,8 +400,8 @@ class BrightnessScale(ContrastBrightScale):
 class AddGaussNoise(_ValueTransform):
     def __init__(self, mu=0.0, sigma=0.1, prob_apply=1.0, limit=(0, 255)):
         super().__init__(True, prob_apply, limit)
-        self.mu = float(mu)
-        self.sigma = float(sigma)
+        self.mu = mu
+        self.sigma = sigma
 
     @_ValueTransform.keep_range
     def _transform(self, x, params):

@@ -58,7 +58,7 @@ class CDTrainer(Trainer):
         self.out_dir = self.ctx['out_dir']
         self.save = (self.ctx['save_on'] or self.out_dir) and not self.debug
 
-        self.val_iters = float(self.ctx['val_iters'])
+        self.val_iters = self.ctx['val_iters']
             
     def init_learning_rate(self):
         # Set learning rate adjustment strategy

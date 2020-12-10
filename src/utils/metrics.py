@@ -9,7 +9,7 @@ class AverageMeter:
         super().__init__()
         if callback is not None:
             self.calculate = callback
-        self.calc_avg = bool(calc_avg)
+        self.calc_avg = calc_avg
         self.reset()
 
     def calculate(self, *args):
@@ -43,10 +43,6 @@ class AverageMeter:
 class Metric(AverageMeter):
     __name__ = 'Metric'
     def __init__(self, n_classes=2, mode='separ', reduction='binary'):
-        if mode not in ('accum', 'separ'):
-            raise ValueError("Invalid working mode")
-        if reduction not in ('mean', 'none', 'binary'):
-            raise ValueError("Invalid reduction type")
         self._cm = AverageMeter(partial(metrics.confusion_matrix, labels=np.arange(n_classes)), False)
         self.mode = mode
         if reduction == 'binary' and n_classes != 2:
@@ -63,6 +59,8 @@ class Metric(AverageMeter):
             cm = self._cm.sum
         elif self.mode == 'separ':
             cm = self._cm.val
+        else:
+            raise ValueError("Invalid working mode")
 
         if self.reduction == 'none':
             # Do not reduce size
@@ -73,6 +71,8 @@ class Metric(AverageMeter):
         elif self.reduction == 'binary':
             # The pos_class be 1
             return self._calculate_metric(cm)[1]
+        else:
+            raise ValueError("Invalid reduction type")
 
     def reset(self):
         super().reset()

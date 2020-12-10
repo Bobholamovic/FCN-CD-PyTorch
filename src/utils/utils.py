@@ -55,9 +55,6 @@ class HookHelper:
         self.fetch_dict = fetch_dict
         self.out_dict = out_dict
         self._handles = []
-
-        if hook_type not in ('forward_in', 'forward_out', 'backward'):
-            raise NotImplementedError("Hook type is not implemented.")
         self.hook_type = hook_type
 
     def __enter__(self):
@@ -106,7 +103,7 @@ class HookHelper:
                         )
                     )
         else:
-            raise NotImplementedError
+            raise NotImplementedError("Hook type is not implemented.")
 
     def __exit__(self, exc_type, exc_val, ext_tb):
         for handle in self._handles:
