@@ -37,3 +37,15 @@ def build_SiamUnet_conc_model(C):
 def build_SiamUnet_conc_OSCD_model(C):
     from models.siamunet_conc import SiamUnet_conc
     return SiamUnet_conc(13, 2)
+
+
+@MODELS.register_func('FresUnet_model')
+def build_FresUnet_model(C):
+    from models.fresunet import FresUNet
+    return FresUNet(6, 2)
+
+
+@MODELS.register_func('FresUnet_OSCD_model')
+def build_FresUnet_OSCD_model(C):
+    from models.fresunet import FresUNet
+    return FresUNet(26, 2)
