@@ -1,5 +1,9 @@
 # Fully Convolutional Siamese Networks for Change Detection
 
+---
+This repo has been deprecated. Please see [CDLab](https://github.com/Bobholamovic/CDLab), which includes more architectures and datasets.
+---
+
 This is an unofficial implementation of the paper
 
 > Rodrigo Caye Daudt, Bertrand Le Saux, Alexandre Boulch. (2018, October). Fully convolutional siamese networks for change detection. In 2018 25th IEEE International Conference on Image Processing (ICIP) (pp. 4063-4067). IEEE.
